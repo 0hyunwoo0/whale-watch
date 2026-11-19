@@ -1,0 +1,33 @@
+name: Update 13F data
+
+on:
+  schedule:
+    # 매일 한국시간 오전 9시 17분 (공시 시즌에 새 13F를 빨리 반영)
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch 13F filings
+        env:
+          SEC_USER_AGENT: "whale-watch personal-research ${{ github.repository_owner }}@users.noreply.github.com"
+          OPENFIGI_API_KEY: ${{ secrets.OPENFIGI_API_KEY }}
+        run: python3 scripts/update_13f.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "13F 데이터 갱신 $(date -u +%Y-%m-%d)"
+          git push
